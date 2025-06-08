@@ -171,6 +171,7 @@ def create_listops_dataloaders(batch_size=32, max_length=2000, subset_size=None)
         sequences = []
         labels = []
         with open(path, "r") as f:
+            next(f)
             for line in f:
                 seq, label = line.strip().split("\t")
                 tokens = seq.strip().split()
