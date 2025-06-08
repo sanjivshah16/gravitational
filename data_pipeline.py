@@ -164,7 +164,7 @@ def create_listops_dataloaders(batch_size=32, max_length=2000, subset_size=None)
     from torch.utils.data import DataLoader
 
     # ✅ NEW: load official LRA ListOps
-    dataset = load_dataset("lra_listops", split=["train", "validation"])
+    dataset = load_dataset("lra", name="listops", split=["train", "validation"])
     vocab = set()
 
     def tokenize(example):
