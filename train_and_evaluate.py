@@ -322,10 +322,12 @@ def run_experiment(task_name, model_configs, training_config, results_dir):
 
     results = {}
     for model_name, model in models.items():
-        model_path = os.path.join(task_results_dir, f"{model_name}_results.json")
-        if os.path.exists(model_path):
-            print(f"⏭️ Skipping {model_name} on {task_name} (already trained)")
-            with open(model_path, "r") as f:
+        result_path = os.path.join(task_results_dir, f"{model_name}_results.json")
+        model_path = os.path.join(task_results_dir, f"{model_name}_model.pt")
+    
+        if os.path.exists(result_path) and os.path.exists(model_path):
+            print(f"⏭️ Skipping {model_name} on {task_name} (results and model already exist)")
+            with open(result_path, "r") as f:
                 results[model_name] = json.load(f)
             continue
     
@@ -342,8 +344,10 @@ def run_experiment(task_name, model_configs, training_config, results_dir):
             config=training_config,
             results_dir=task_results_dir
         )
+    
         model_results = trainer.train()
         results[model_name] = model_results
+
 
 
     return results
