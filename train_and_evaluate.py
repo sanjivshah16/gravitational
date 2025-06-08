@@ -85,59 +85,60 @@ class AttentionModelTrainer:
         correct = 0
         total = 0
         start_time = time.time()
-
+    
         # Track peak memory usage
         if torch.cuda.is_available():
             torch.cuda.reset_peak_memory_stats(self.device)
-
+    
         for batch in tqdm(self.train_dataloader, desc=f"Epoch {epoch+1} Training"):
-            # Move batch to device
-            input_ids = batch['input_ids'].to(self.device)
-            labels = batch['label'].to(self.device)
-
-            # Create padding mask
-            mask = create_padding_mask(input_ids, pad_idx=1).to(self.device)
-
-            # Forward pass
+            # ✅ Unpack batch tuple
+            input_ids, labels = batch
+            input_ids = input_ids.to(self.device)
+            labels = labels.to(self.device)
+    
+            # Optional: Skip mask unless required
+            mask = None
+            if hasattr(self.model, "use_mask") and self.model.use_mask:
+                mask = create_padding_mask(input_ids, pad_idx=1).to(self.device)
+    
             self.optimizer.zero_grad()
+    
+            # Forward pass
             logits, _ = self.model(input_ids, mask)
-
-            # Calculate loss
+    
+            # Loss and backward
             loss = self.criterion(logits, labels)
-
-            # Backward pass
             loss.backward()
-
+    
             # Gradient clipping
             torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config['max_grad_norm'])
-
-            # Update weights
+    
             self.optimizer.step()
-
-            # Update metrics
+    
+            # Metrics
             total_loss += loss.item()
             _, predicted = torch.max(logits, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
-
-        # Calculate epoch metrics
+    
+        # Epoch metrics
         epoch_loss = total_loss / len(self.train_dataloader)
         epoch_accuracy = correct / total
         epoch_time = time.time() - start_time
-
-        # Record peak memory usage
+    
+        # Memory usage
         if torch.cuda.is_available():
-            peak_memory = torch.cuda.max_memory_allocated(self.device) / (1024 ** 3)  # GB
+            peak_memory = torch.cuda.max_memory_allocated(self.device) / (1024 ** 3)
         else:
             peak_memory = 0
-
-        # Update tracking
+    
         self.train_losses.append(epoch_loss)
         self.train_accuracies.append(epoch_accuracy)
         self.training_times.append(epoch_time)
         self.peak_memory_usage.append(peak_memory)
-
+    
         return epoch_loss, epoch_accuracy, epoch_time, peak_memory
+
 
     def validate(self, epoch):
         """Validate the model."""
@@ -145,53 +146,49 @@ class AttentionModelTrainer:
         total_loss = 0
         correct = 0
         total = 0
-
+    
         with torch.no_grad():
             for batch in tqdm(self.test_dataloader, desc=f"Epoch {epoch+1} Validation"):
-                # Move batch to device
-                input_ids = batch['input_ids'].to(self.device)
-                labels = batch['label'].to(self.device)
-
-                # Create padding mask
-                mask = create_padding_mask(input_ids, pad_idx=1).to(self.device)
-
+                # ✅ Unpack tuple
+                input_ids, labels = batch
+                input_ids = input_ids.to(self.device)
+                labels = labels.to(self.device)
+    
+                # Optional: only compute mask if model uses it
+                mask = None
+                if hasattr(self.model, "use_mask") and self.model.use_mask:
+                    mask = create_padding_mask(input_ids, pad_idx=1).to(self.device)
+    
                 # Forward pass
                 logits, attention_weights = self.model(input_ids, mask)
-
-                # Calculate loss
+    
+                # Loss
                 loss = self.criterion(logits, labels)
-
-                # Update metrics
+    
+                # Metrics
                 total_loss += loss.item()
                 _, predicted = torch.max(logits, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
-
-                # Save attention patterns for the first batch of the last epoch
+    
+                # ✅ Save attention patterns only once at last epoch
                 if epoch == self.config['epochs'] - 1 and len(self.attention_patterns) == 0:
-                    # Save attention weights from the first layer, first head
-                    # For multi-timescale models, save from each timescale
                     if isinstance(attention_weights[0], torch.Tensor):
-                        # Conventional or gravitational attention
-                        attn_pattern = attention_weights[0][0, 0].cpu().numpy()  # [batch, head, seq, seq]
+                        attn_pattern = attention_weights[0][0, 0].cpu().numpy()
                     else:
-                        # Multi-timescale attention
-                        attn_pattern = [aw[0, 0, 0].cpu().numpy() for aw in attention_weights]  # [timescale, batch, head, seq, seq]
-
+                        attn_pattern = [aw[0, 0, 0].cpu().numpy() for aw in attention_weights]
                     self.attention_patterns.append(attn_pattern)
-
-        # Calculate validation metrics
+    
         val_loss = total_loss / len(self.test_dataloader)
         val_accuracy = correct / total
-
-        # Update tracking
+    
         self.val_losses.append(val_loss)
         self.val_accuracies.append(val_accuracy)
-
-        # Update learning rate scheduler
+    
         self.scheduler.step(val_accuracy)
-
+    
         return val_loss, val_accuracy
+
 
     def train(self):
         """Train the model for the specified number of epochs."""
