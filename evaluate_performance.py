@@ -335,10 +335,10 @@ class AttentionModelEvaluator:
     
         else:
             cols = min(n_models, 3)
-            rows = ceil(n_models / cols)
+            rows = (n_models + cols - 1) // cols
             fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 4 * rows))
             axes = np.atleast_2d(axes)
-    
+        
             for i, (model_name, patterns) in enumerate(attention_patterns.items()):
                 row, col = divmod(i, cols)
                 ax = axes[row, col]
@@ -348,11 +348,12 @@ class AttentionModelEvaluator:
                 ax.set_xlabel("Key Position")
                 ax.set_ylabel("Query Position")
                 plt.colorbar(im, ax=ax)
-    
+        
             # Hide unused axes
             for j in range(len(attention_patterns), rows * cols):
                 row, col = divmod(j, cols)
                 axes[row, col].axis("off")
+
     
         plt.suptitle(f"🧠 Attention Patterns – {task.upper()}", fontsize=16)
         plt.tight_layout()
