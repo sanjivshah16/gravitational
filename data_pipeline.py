@@ -163,7 +163,7 @@ def create_listops_dataloaders(batch_size=32, max_length=2000, subset_size=None)
     from torch.utils.data import DataLoader
     from pathlib import Path
 
-    data_dir = Path("lra-benchmarks/lra_release/listops-1000")
+    data_dir = Path("lra-benchmarks/datasets/listops-1000")
     train_path = data_dir / "basic_train.tsv"
     val_path = data_dir / "basic_val.tsv"
 
