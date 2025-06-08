@@ -298,39 +298,68 @@ class AttentionModelEvaluator:
         n_models = len(attention_patterns)
         has_timescales = any('multi_timescale' in name for name in attention_patterns)
     
+        # ✅ Helper function to extract 2D attention pattern
+        def extract_2d_pattern(pattern):
+            """Extract a 2D attention pattern from various possible shapes."""
+            if isinstance(pattern, list):
+                # Multi-timescale case - return list of 2D patterns
+                return [extract_2d_pattern(p) for p in pattern]
+            
+            pattern = np.array(pattern)
+            
+            # Handle different shapes
+            if pattern.ndim == 2:
+                return pattern  # Already 2D
+            elif pattern.ndim == 3:
+                # Shape like (n_heads, seq_len, seq_len) - average over heads
+                return np.mean(pattern, axis=0)
+            elif pattern.ndim == 4:
+                # Shape like (batch, n_heads, seq_len, seq_len) - take first batch, average heads
+                return np.mean(pattern[0], axis=0)
+            else:
+                # Fallback: take the last 2 dimensions
+                return pattern.reshape(-1, pattern.shape[-1])
+    
+        # Process attention patterns
+        processed_patterns = {}
+        for model_name, patterns in attention_patterns.items():
+            processed_patterns[model_name] = extract_2d_pattern(patterns)
+    
         # Plotting setup
         if has_timescales:
             max_timescales = max(
-                len(patterns[0]) if isinstance(patterns[0], list) else 1
-                for patterns in attention_patterns.values()
+                len(patterns) if isinstance(patterns, list) else 1
+                for patterns in processed_patterns.values()
             )
             fig, axes = plt.subplots(n_models, max_timescales, figsize=(5 * max_timescales, 4 * n_models))
             
-            # Fix: Handle both 1D and 2D axes arrays
-            if n_models == 1:
+            # Handle both 1D and 2D axes arrays
+            if n_models == 1 and max_timescales == 1:
+                axes = np.array([[axes]])  # Make 2D
+            elif n_models == 1:
                 axes = axes.reshape(1, -1)  # Ensure 2D shape
             elif max_timescales == 1:
                 axes = axes.reshape(-1, 1)  # Ensure 2D shape
     
-            for row, (model_name, patterns) in enumerate(attention_patterns.items()):
+            for row, (model_name, patterns) in enumerate(processed_patterns.items()):
                 model_label = self.model_display_names.get(model_name, model_name)
     
-                if isinstance(patterns[0], list):  # multi-timescale
-                    for t, attn_map in enumerate(patterns[0]):
+                if isinstance(patterns, list):  # multi-timescale
+                    for t, attn_map in enumerate(patterns):
                         if t >= axes.shape[1]:
                             continue
                         ax = axes[row, t]
-                        im = ax.imshow(attn_map, cmap="viridis")
+                        im = ax.imshow(attn_map, cmap="viridis", aspect='auto')
                         ax.set_title(f"{model_label}\nTimescale {t+1}")
                         ax.set_xlabel("Key Position")
                         ax.set_ylabel("Query Position")
                         plt.colorbar(im, ax=ax)
                     # Hide unused timescale subplots
-                    for t in range(len(patterns[0]), axes.shape[1]):
+                    for t in range(len(patterns), axes.shape[1]):
                         axes[row, t].axis("off")
                 else:
                     ax = axes[row, 0]
-                    im = ax.imshow(patterns[0], cmap="viridis")
+                    im = ax.imshow(patterns, cmap="viridis", aspect='auto')
                     ax.set_title(model_label)
                     ax.set_xlabel("Key Position")
                     ax.set_ylabel("Query Position")
@@ -343,7 +372,7 @@ class AttentionModelEvaluator:
             rows = (n_models + cols - 1) // cols
             fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 4 * rows))
             
-            # Fix: Handle single subplot case
+            # Handle single subplot case
             if rows == 1 and cols == 1:
                 axes = np.array([[axes]])  # Make 2D
             elif rows == 1:
@@ -351,18 +380,18 @@ class AttentionModelEvaluator:
             elif cols == 1:
                 axes = axes.reshape(-1, 1)  # Make 2D
         
-            for i, (model_name, patterns) in enumerate(attention_patterns.items()):
+            for i, (model_name, patterns) in enumerate(processed_patterns.items()):
                 row, col = divmod(i, cols)
                 ax = axes[row, col]
                 model_label = self.model_display_names.get(model_name, model_name)
-                im = ax.imshow(patterns[0], cmap="viridis")
+                im = ax.imshow(patterns, cmap="viridis", aspect='auto')
                 ax.set_title(model_label)
                 ax.set_xlabel("Key Position")
                 ax.set_ylabel("Query Position")
                 plt.colorbar(im, ax=ax)
         
             # Hide unused axes
-            for j in range(len(attention_patterns), rows * cols):
+            for j in range(len(processed_patterns), rows * cols):
                 row, col = divmod(j, cols)
                 axes[row, col].axis("off")
     
