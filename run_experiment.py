@@ -38,8 +38,8 @@ def select_device():
     return device
 
 
-def run_complete_experiment():
-    """Run the complete experiment pipeline."""
+def run_complete_experiment(selected_tasks):
+    """Run the complete experiment pipeline for selected tasks."""
     print("🚀 Starting attention mechanism comparison experiment...")
 
     # Set random seeds for reproducibility
@@ -60,11 +60,11 @@ def run_complete_experiment():
         'n_heads': 4,
         'n_layers': 2,
         'd_ff': 512,
-        'max_seq_length': 512,  # Adjust if needed for ListOps/IMDB
+        'max_seq_length': 512,
         'dropout': 0.1
     }
 
-    # Specific model configs (4 attention types)
+    # Specific model configs
     model_configs = {
         'conventional': base_model_config.copy(),
         'gravitational': base_model_config.copy(),
@@ -79,18 +79,18 @@ def run_complete_experiment():
         'weight_decay': 1e-5,
         'epochs': 20,
         'max_grad_norm': 1.0,
-        'subset_size': 1000  # Use None for full dataset
+        'subset_size': 1000  # Set to None for full dataset
     }
 
-    # Save configurations to file
+    # Save configurations
     with open(os.path.join(results_dir, 'configs.json'), 'w') as f:
         json.dump({
             'model_configs': model_configs,
             'training_config': training_config
         }, f, indent=2)
 
-    # Run tasks
-    tasks = ['imdb', 'listops']
+    # Determine which tasks to run
+    tasks = ['imdb', 'listops'] if selected_tasks == 'all' else [selected_tasks]
     all_results = {}
 
     for task in tasks:
@@ -109,7 +109,7 @@ def run_complete_experiment():
 
     print("\n✅ All experiments completed!")
 
-    # Post-run analysis
+    # Analyze results
     print("\n📊 Analyzing results...")
     summary_df, output_dir = analyze_results(results_dir)
 
@@ -127,18 +127,4 @@ if __name__ == "__main__":
     parser.add_argument('--task', choices=['imdb', 'listops', 'all'], default='all',
                         help="Which task to run: imdb, listops, or all")
     args = parser.parse_args()
-
-    def run_complete_experiment(selected_tasks):
-        """Run the complete experiment pipeline for selected tasks."""
-        print("🚀 Starting attention mechanism comparison experiment...")
-
-        # (Leave all your existing logic inside here untouched)
-        ...
-        # Replace this line:
-        # tasks = ['imdb', 'listops']
-        # With this:
-        tasks = ['imdb', 'listops'] if selected_tasks == 'all' else [selected_tasks]
-        ...
-
     run_complete_experiment(args.task)
-
