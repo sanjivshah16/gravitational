@@ -159,43 +159,58 @@ def create_imdb_dataloaders(batch_size=32, max_length=512, subset_size=None):
 
 
 def create_listops_dataloaders(batch_size=32, max_length=2000, subset_size=None):
-    from datasets import load_dataset
     import torch
     from torch.utils.data import DataLoader
+    from pathlib import Path
 
-    # ✅ NEW: load official LRA ListOps
-    dataset = load_dataset("lra", name="listops", split=["train", "validation"])
-    vocab = set()
+    data_dir = Path("lra-benchmarks/lra_release/listops-1000")
+    train_path = data_dir / "basic_train.tsv"
+    val_path = data_dir / "basic_val.tsv"
 
-    def tokenize(example):
-        tokens = example["input"].split()
-        vocab.update(tokens)
-        return {"input_ids": tokens, "label": int(example["target"])}
+    def load_tsv(path):
+        sequences = []
+        labels = []
+        with open(path, "r") as f:
+            for line in f:
+                seq, label = line.strip().split("\t")
+                tokens = seq.strip().split()
+                sequences.append(tokens[:max_length])
+                labels.append(int(label))
+        return sequences, labels
 
-    tokenized_datasets = [d.map(tokenize) for d in dataset]
+    train_seqs, train_labels = load_tsv(train_path)
+    val_seqs, val_labels = load_tsv(val_path)
 
-    vocab = {word: idx for idx, word in enumerate(sorted(vocab))}
+    # Build vocab
+    vocab_set = set(token for seq in train_seqs for token in seq)
+    vocab = {token: idx for idx, token in enumerate(sorted(vocab_set))}
     vocab_size = len(vocab)
 
-    def encode(example):
-        input_ids = [vocab[token] for token in example["input_ids"][:max_length]]
-        return torch.tensor(input_ids), torch.tensor(example["label"])
+    def encode_batch(seqs, labels):
+        encoded = []
+        for seq, label in zip(seqs, labels):
+            token_ids = [vocab[token] for token in seq]
+            if len(token_ids) < max_length:
+                token_ids += [0] * (max_length - len(token_ids))
+            encoded.append((torch.tensor(token_ids), torch.tensor(label)))
+        return encoded
 
-    train_data = [encode(ex) for ex in tokenized_datasets[0]]
-    val_data = [encode(ex) for ex in tokenized_datasets[1]]
+    train_data = encode_batch(train_seqs, train_labels)
+    val_data = encode_batch(val_seqs, val_labels)
 
     if subset_size:
         train_data = train_data[:subset_size]
         val_data = val_data[:subset_size]
 
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(val_data, batch_size=batch_size)
+    val_loader = DataLoader(val_data, batch_size=batch_size)
 
     return {
         "train": train_loader,
-        "test": test_loader,
+        "test": val_loader,
         "vocab_size": vocab_size
     }
+
 
 
 
