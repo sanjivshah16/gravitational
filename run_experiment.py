@@ -59,7 +59,7 @@ def run_complete_experiment():
         'n_heads': 4,
         'n_layers': 2,
         'd_ff': 512,
-        'max_seq_length': 1024,  # Adjust if needed for ListOps/IMDB
+        'max_seq_length': 512,  # Adjust if needed for ListOps/IMDB
         'dropout': 0.1
     }
 
@@ -73,7 +73,7 @@ def run_complete_experiment():
 
     # Training configuration
     training_config = {
-        'batch_size': 32,
+        'batch_size': 8,
         'learning_rate': 1e-4,
         'weight_decay': 1e-5,
         'epochs': 20,
