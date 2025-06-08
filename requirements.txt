@@ -11,3 +11,4 @@ pyyaml==6.0.1
 matplotlib==3.8.4
 seaborn==0.13.2
 portalocker>=2.0.0
+tabulate
