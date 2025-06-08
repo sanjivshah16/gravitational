@@ -305,7 +305,12 @@ class AttentionModelEvaluator:
                 for patterns in attention_patterns.values()
             )
             fig, axes = plt.subplots(n_models, max_timescales, figsize=(5 * max_timescales, 4 * n_models))
-            axes = np.atleast_2d(axes)
+            
+            # Fix: Handle both 1D and 2D axes arrays
+            if n_models == 1:
+                axes = axes.reshape(1, -1)  # Ensure 2D shape
+            elif max_timescales == 1:
+                axes = axes.reshape(-1, 1)  # Ensure 2D shape
     
             for row, (model_name, patterns) in enumerate(attention_patterns.items()):
                 model_label = self.model_display_names.get(model_name, model_name)
@@ -337,7 +342,14 @@ class AttentionModelEvaluator:
             cols = min(n_models, 3)
             rows = (n_models + cols - 1) // cols
             fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 4 * rows))
-            axes = np.atleast_2d(axes)
+            
+            # Fix: Handle single subplot case
+            if rows == 1 and cols == 1:
+                axes = np.array([[axes]])  # Make 2D
+            elif rows == 1:
+                axes = axes.reshape(1, -1)  # Make 2D
+            elif cols == 1:
+                axes = axes.reshape(-1, 1)  # Make 2D
         
             for i, (model_name, patterns) in enumerate(attention_patterns.items()):
                 row, col = divmod(i, cols)
@@ -353,7 +365,6 @@ class AttentionModelEvaluator:
             for j in range(len(attention_patterns), rows * cols):
                 row, col = divmod(j, cols)
                 axes[row, col].axis("off")
-
     
         plt.suptitle(f"🧠 Attention Patterns – {task.upper()}", fontsize=16)
         plt.tight_layout()
