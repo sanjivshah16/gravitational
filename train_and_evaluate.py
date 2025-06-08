@@ -359,10 +359,10 @@ if __name__ == "__main__":
     torch.manual_seed(42)
     np.random.seed(42)
 
-    # Create results directory with timestamp
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    results_dir = f"./results_{timestamp}"
+    # Reuse a fixed results directory unless overridden
+    results_dir = "./results_current"
     os.makedirs(results_dir, exist_ok=True)
+
 
     # Define model configurations
     base_model_config = {
