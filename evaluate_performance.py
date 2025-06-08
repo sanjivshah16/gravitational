@@ -269,79 +269,100 @@ class AttentionModelEvaluator:
     
     def plot_attention_patterns(self, task, save_path=None):
         """Plot attention patterns for all models on a specific task."""
+        import matplotlib.pyplot as plt
+        import numpy as np
+        import os
+        from math import ceil
+    
         if task not in self.results:
-            print(f"Warning: Results for task {task} not found.")
+            print(f"⚠️ Warning: Results for task '{task}' not found.")
             return None
-            
+    
         # Load attention patterns
         attention_patterns = {}
         for model_name in self.model_names:
             pattern_file = os.path.join(self.results_dir, task, f"{model_name}_attention_patterns.npy")
             if not os.path.exists(pattern_file):
-                print(f"Warning: Attention pattern file for {model_name} on {task} not found.")
+                print(f"⚠️ Attention pattern file for {model_name} on {task} not found.")
                 continue
-                
-            attention_patterns[model_name] = np.load(pattern_file, allow_pickle=True)
-        
-        # Determine number of models with patterns
-        n_models = len(attention_patterns)
-        if n_models == 0:
-            print("No attention patterns found.")
+            try:
+                attention_patterns[model_name] = np.load(pattern_file, allow_pickle=True)
+            except Exception as e:
+                print(f"❌ Failed to load {pattern_file}: {e}")
+                continue
+    
+        if not attention_patterns:
+            print(f"⚠️ No attention patterns available for task '{task}'. Skipping plot.")
             return None
-            
-        # Determine layout based on models and timescales
-        has_timescales = any('multi_timescale' in model for model in attention_patterns.keys())
-        
+    
+        n_models = len(attention_patterns)
+        has_timescales = any('multi_timescale' in name for name in attention_patterns)
+    
+        # Plotting setup
         if has_timescales:
-            # For models with timescales, we need more subplots
-            max_timescales = 3  # Assuming max 3 timescales
-            fig, axes = plt.subplots(n_models, max_timescales, figsize=(15, 4 * n_models))
-            
-            row = 0
-            for model_name, patterns in attention_patterns.items():
-                if 'multi_timescale' in model_name:
-                    # Multi-timescale models have patterns for each timescale
-                    for t in range(len(patterns[0])):
-                        ax = axes[row, t] if n_models > 1 else axes[t]
-                        im = ax.imshow(patterns[0][t], cmap='viridis')
-                        ax.set_title(f"{self.model_display_names[model_name]}\nTimescale {t+1}")
-                        ax.set_xlabel('Key Position')
-                        ax.set_ylabel('Query Position')
+            max_timescales = max(
+                len(patterns[0]) if isinstance(patterns[0], list) else 1
+                for patterns in attention_patterns.values()
+            )
+            fig, axes = plt.subplots(n_models, max_timescales, figsize=(5 * max_timescales, 4 * n_models))
+            axes = np.atleast_2d(axes)
+    
+            for row, (model_name, patterns) in enumerate(attention_patterns.items()):
+                model_label = self.model_display_names.get(model_name, model_name)
+    
+                if isinstance(patterns[0], list):  # multi-timescale
+                    for t, attn_map in enumerate(patterns[0]):
+                        if t >= axes.shape[1]:
+                            continue
+                        ax = axes[row, t]
+                        im = ax.imshow(attn_map, cmap="viridis")
+                        ax.set_title(f"{model_label}\nTimescale {t+1}")
+                        ax.set_xlabel("Key Position")
+                        ax.set_ylabel("Query Position")
                         plt.colorbar(im, ax=ax)
+                    # Hide unused timescale subplots
+                    for t in range(len(patterns[0]), axes.shape[1]):
+                        axes[row, t].axis("off")
                 else:
-                    # Single-timescale models have one pattern
-                    ax = axes[row, 0] if n_models > 1 else axes[0]
-                    im = ax.imshow(patterns[0], cmap='viridis')
-                    ax.set_title(f"{self.model_display_names[model_name]}")
-                    ax.set_xlabel('Key Position')
-                    ax.set_ylabel('Query Position')
+                    ax = axes[row, 0]
+                    im = ax.imshow(patterns[0], cmap="viridis")
+                    ax.set_title(model_label)
+                    ax.set_xlabel("Key Position")
+                    ax.set_ylabel("Query Position")
                     plt.colorbar(im, ax=ax)
-                    
-                    # Hide unused subplots
-                    for t in range(1, max_timescales):
-                        ax = axes[row, t] if n_models > 1 else axes[t]
-                        ax.axis('off')
-                
-                row += 1
+                    for t in range(1, axes.shape[1]):
+                        axes[row, t].axis("off")
+    
         else:
-            # For models without timescales, we need one subplot per model
-            fig, axes = plt.subplots(1, n_models, figsize=(5 * n_models, 4))
-            
+            cols = min(n_models, 3)
+            rows = ceil(n_models / cols)
+            fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 4 * rows))
+            axes = np.atleast_2d(axes)
+    
             for i, (model_name, patterns) in enumerate(attention_patterns.items()):
-                ax = axes[i] if n_models > 1 else axes
-                im = ax.imshow(patterns[0], cmap='viridis')
-                ax.set_title(f"{self.model_display_names[model_name]}")
-                ax.set_xlabel('Key Position')
-                ax.set_ylabel('Query Position')
+                row, col = divmod(i, cols)
+                ax = axes[row, col]
+                model_label = self.model_display_names.get(model_name, model_name)
+                im = ax.imshow(patterns[0], cmap="viridis")
+                ax.set_title(model_label)
+                ax.set_xlabel("Key Position")
+                ax.set_ylabel("Query Position")
                 plt.colorbar(im, ax=ax)
-        
-        plt.suptitle(f'Attention Patterns - {task.upper()}', fontsize=16)
+    
+            # Hide unused axes
+            for j in range(len(attention_patterns), rows * cols):
+                row, col = divmod(j, cols)
+                axes[row, col].axis("off")
+    
+        plt.suptitle(f"🧠 Attention Patterns – {task.upper()}", fontsize=16)
         plt.tight_layout()
-        
+    
         if save_path:
             plt.savefig(save_path, dpi=300, bbox_inches='tight')
-            
+            print(f"✅ Saved attention pattern plot to: {save_path}")
+    
         return fig
+
     
     def generate_summary_table(self):
         """Generate a summary table of key metrics for all models and tasks."""
