@@ -49,9 +49,8 @@ def run_complete_experiment(selected_tasks):
     # Choose device
     device = select_device()
 
-    # Create results directory with timestamp
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    results_dir = f"./results_{timestamp}"
+    # Use fixed results directory so skipping logic works
+    results_dir = "./results_current"
     os.makedirs(results_dir, exist_ok=True)
 
     # Base model configuration
