@@ -13,6 +13,7 @@ import torch
 import numpy as np
 import warnings
 from datetime import datetime
+import argparse
 
 # Silence known NumPy 2.0 warnings
 warnings.filterwarnings("ignore", message="Failed to initialize NumPy")
@@ -122,4 +123,22 @@ def run_complete_experiment():
 
 
 if __name__ == "__main__":
-    run_complete_experiment()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--task', choices=['imdb', 'listops', 'all'], default='all',
+                        help="Which task to run: imdb, listops, or all")
+    args = parser.parse_args()
+
+    def run_complete_experiment(selected_tasks):
+        """Run the complete experiment pipeline for selected tasks."""
+        print("🚀 Starting attention mechanism comparison experiment...")
+
+        # (Leave all your existing logic inside here untouched)
+        ...
+        # Replace this line:
+        # tasks = ['imdb', 'listops']
+        # With this:
+        tasks = ['imdb', 'listops'] if selected_tasks == 'all' else [selected_tasks]
+        ...
+
+    run_complete_experiment(args.task)
+
