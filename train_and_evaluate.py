@@ -279,9 +279,32 @@ def run_experiment(task_name, model_configs, training_config, results_dir):
     task_results_dir = os.path.join(results_dir, task_name)
     os.makedirs(task_results_dir, exist_ok=True)
 
-    print(f"Loading {task_name} data...")
+    # ✅ Check if ALL results already exist BEFORE loading data
+    model_names = list(model_configs.keys())
+    all_results_exist = True
+    
+    for model_name in model_names:
+        result_path = os.path.join(task_results_dir, f"{model_name}_results.json")
+        model_path = os.path.join(task_results_dir, f"{model_name}_model.pt")
+        
+        if not (os.path.exists(result_path) and os.path.exists(model_path)):
+            all_results_exist = False
+            break
+    
+    if all_results_exist:
+        print(f"✅ All results for {task_name} already exist. Skipping data loading and training.")
+        # Load and return existing results
+        results = {}
+        for model_name in model_names:
+            result_path = os.path.join(task_results_dir, f"{model_name}_results.json")
+            with open(result_path, "r") as f:
+                results[model_name] = json.load(f)
+        return results
 
-    # ✅ Extract max_seq_length from one of the sub-configs
+    # ✅ Only load data if we need to run experiments
+    print(f"📊 Loading {task_name} data...")
+
+    # Extract max_seq_length from one of the sub-configs
     max_length = model_configs['conventional']['max_seq_length']
 
     if task_name == 'imdb':
@@ -301,7 +324,7 @@ def run_experiment(task_name, model_configs, training_config, results_dir):
     else:
         raise ValueError(f"Unknown task: {task_name}")
 
-    # ✅ Unpack dataloaders dictionary
+    # Unpack dataloaders dictionary
     train_dataloader = dataloaders["train"]
     test_dataloader = dataloaders["test"]
     vocab_size = dataloaders["vocab_size"]
@@ -347,8 +370,6 @@ def run_experiment(task_name, model_configs, training_config, results_dir):
     
         model_results = trainer.train()
         results[model_name] = model_results
-
-
 
     return results
 
