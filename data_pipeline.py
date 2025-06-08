@@ -163,13 +163,14 @@ def create_listops_dataloaders(batch_size=32, max_length=2000, subset_size=None)
     import torch
     from torch.utils.data import DataLoader
 
-    dataset = load_dataset("nyu-mll/listops-processed", split=["train", "validation"])
+    # ✅ NEW: load official LRA ListOps
+    dataset = load_dataset("lra_listops", split=["train", "validation"])
     vocab = set()
 
     def tokenize(example):
-        tokens = example["text"].split()
+        tokens = example["input"].split()
         vocab.update(tokens)
-        return {"input_ids": tokens, "label": int(example["label"])}
+        return {"input_ids": tokens, "label": int(example["target"])}
 
     tokenized_datasets = [d.map(tokenize) for d in dataset]
 
@@ -180,11 +181,9 @@ def create_listops_dataloaders(batch_size=32, max_length=2000, subset_size=None)
         input_ids = [vocab[token] for token in example["input_ids"][:max_length]]
         return torch.tensor(input_ids), torch.tensor(example["label"])
 
-    # Encode datasets
     train_data = [encode(ex) for ex in tokenized_datasets[0]]
     val_data = [encode(ex) for ex in tokenized_datasets[1]]
 
-    # ✅ Apply subset truncation if specified
     if subset_size:
         train_data = train_data[:subset_size]
         val_data = val_data[:subset_size]
@@ -197,6 +196,7 @@ def create_listops_dataloaders(batch_size=32, max_length=2000, subset_size=None)
         "test": test_loader,
         "vocab_size": vocab_size
     }
+
 
 
 def create_padding_mask(batch, pad_idx=1):
